@@ -3,17 +3,28 @@ import os
 from subprocess import check_output
 import tempfile
 
+def ssh_args():
+  args = []
+  if 'SSH_CRED' in os.environ:
+    args += ['-i',os.environ['SSH_CRED']]
+  return args
+
+def _scp_cmd(src,dst):
+  res = ['scp']+ssh_args()+[src,dst]
+  #print("CMD:"+(' '.join(res)))
+  return res
+
 def is_ssh_path(fn):
   return ('@' in fn) and (':' in fn)
 
 def local_ver(fn:str)->str:
   if is_ssh_path(fn):
     tmp_fn = tempfile.mktemp(prefix='wald',suffix='.'+fn.split('.')[-1])
-    cmd = ['scp',fn,tmp_fn]
+    cmd = _scp_cmd(fn,tmp_fn)
     check_output(cmd)
 
     if fn.endswith('.hdf'):
-      cmd = ['scp',fn+'.xml',tmp_fn+'.xml']
+      cmd = _scp_cmd(fn+'.xml',tmp_fn+'.xml')
       check_output(cmd)
 
     return tmp_fn
@@ -44,7 +55,7 @@ def _remote_glob(conn,path):
 
   # print(static_path,wild_card)
   # print(i,len(components))
-  cmd = ['ssh',conn,'ls','-d','--file-type',static_path+wild_card]
+  cmd = ['ssh'] + ssh_args() + [conn,'ls','-d','--file-type',static_path+wild_card]
   # print('Running: %s'%(' '.join(cmd)))
   try:
     res = check_output(cmd).decode('utf-8').splitlines()
